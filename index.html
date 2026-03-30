@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soica</title>
+
+    <style>
+        body{margin:0;background:#0e0f13;color:#fff;font-family:sans-serif}
+        main{padding:32px 40px;padding-bottom:100px}
+        .page{display:none}
+        .page.active{display:block}
+
+        .input-row{display:flex;gap:12px}
+        .express-input{margin-bottom:24px}
+        .input-row.spaced{margin-top:30px}
+        .input-row input{flex:1;padding:16px;border-radius:14px;border:none;background:#1c1f26;color:#fff}
+        .primary{padding:16px 20px;border:none;border-radius:14px;background:#0a84ff;color:#fff}
+
+        .cards{
+            display:grid;
+            grid-template-columns:repeat(3, 1fr);
+            gap:24px;
+            justify-content:start;
+            align-items:start;
+        }
+        .card{aspect-ratio:1.586;border-radius:18px;overflow:hidden;position:relative;background:#222}
+        .card img{width:100%;height:100%;object-fit:cover}
+        .card .overlay{position:absolute;inset:0;display:flex;justify-content:center;align-items:center;background:rgba(0,0,0,.4)}
+        .card .balance{font-size:26px;font-weight:bold}
+        .card .name{position:absolute;bottom:12px;left:14px;font-size:14px}
+
+        .detail-card img{width:100%;max-width:420px;border-radius:16px}
+        .detail-name{font-size:26px;margin-top:12px}
+
+        .balance-box{margin-top:30px;padding:40px;text-align:center;font-size:32px;background:#1c1f26;border-radius:16px}
+
+        .back{position:absolute;top:20px;left:20px;font-size:20px;cursor:pointer}
+
+        .bottom-nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#181b22}
+        .bottom-nav button{flex:1;padding:16px;background:none;border:none;color:#aaa}
+        .bottom-nav .active{color:#0a84ff}
+
+        .settings-grid{display:grid;grid-template-columns:380px 1fr;gap:40px;min-height:80vh}
+        .settings-left{
+            background:#1a1d24;
+            padding:24px;
+            border-radius:18px;
+            display:flex;
+            flex-direction:column;
+            align-items:stretch;
+        }
+        .settings-left input{
+            width:100%;
+            max-width:100%;
+            box-sizing:border-box;
+            margin-bottom:16px;
+            padding:16px;
+            border-radius:14px;
+            background:#1c1f26;
+            border:none;
+            color:#fff;
+        }
+
+        .preview{text-align:center;margin:20px 0}
+        .preview img{width:100%;border-radius:14px}
+        .preview div{margin-top:12px;font-size:22px}
+
+        .add-btn{width:100%;padding:16px;background:#30d158;border:none;border-radius:14px;color:#fff;margin-top:auto}
+
+        .settings-right .item{display:flex;gap:12px;align-items:center;background:#1c1f26;padding:14px;border-radius:12px;margin-bottom:12px;cursor:grab}
+        .settings-right img{width:90px;border-radius:12px}
+    </style>
+</head>
+
+<body>
+<main>
+
+    <section id="expressMode" class="page active">
+        <div class="input-row express-input">
+            <input id="userId" placeholder="ユーザーID">
+            <button class="primary" onclick="expressCheck()">確認</button>
+        </div>
+        <div id="expressResults" class="cards"></div>
+    </section>
+
+    <section id="normalMode" class="page">
+        <div id="cardList" class="cards"></div>
+    </section>
+
+    <section id="detailMode" class="page">
+        <div class="back" onclick="switchTab('normalMode')">＜</div>
+        <div class="detail-card">
+            <img id="detailImg">
+            <div id="detailTitle" class="detail-name"></div>
+        </div>
+        <div class="input-row spaced">
+            <input id="normalUserId" placeholder="ユーザーID">
+            <button class="primary" onclick="checkSelected()">確認</button>
+        </div>
+        <div id="result" class="balance-box">残高を表示</div>
+    </section>
+
+    <section id="settingsMode" class="page">
+        <div class="settings-grid">
+            <div class="settings-left">
+                <h3>カード追加</h3>
+                <input id="jsonUrl" placeholder="JSON URL">
+                <div class="preview">
+                    <img id="previewImg">
+                    <div id="previewName"></div>
+                </div>
+                <button class="add-btn" onclick="openOfficialList()" style="margin-bottom:10px;background:#0a84ff;">公式カードリスト</button>
+                <button class="add-btn" onclick="confirmAdd()">追加</button>
+            </div>
+            <div id="settingsList" class="settings-right"></div>
+        </div>
+    </section>
+
+</main>
+
+<div id="officialModal" class="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);justify-content:center;align-items:center;">
+  <div style="background:#1c1f26;padding:20px;border-radius:16px;width:90%;max-height:80vh;overflow:auto;">
+    <h3>公式カードリスト</h3>
+    <div id="officialList" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:16px;justify-content:start;"></div>
+    <button onclick="closeOfficial()" style="margin-top:12px;width:100%;padding:12px;border:none;border-radius:12px;background:#2a2e38;color:#fff;">閉じる</button>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+    <button onclick="switchTab('normalMode')">標準</button>
+    <button class="active" onclick="switchTab('expressMode')">エクスプレス</button>
+    <button onclick="switchTab('settingsMode')">設定</button>
+</nav>
+
+<script>
+    // スマホならsmart.htmlへリダイレクト
+    if (window.innerWidth <= 767) {
+      window.location.href = 'smart.html';
+    }
+    let selectedCard=null,previewData=null,dragIndex=null;
+    const getCards=()=>JSON.parse(localStorage.getItem('soica_cards')||'[]');
+    const saveCards=c=>localStorage.setItem('soica_cards',JSON.stringify(c));
+
+    function switchTab(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');if(id==='expressMode')preloadExpress();}
+
+    function createCard(c,b='--'){const d=document.createElement('div');d.className='card';d.innerHTML=`<img src="${c.imageURL}"><div class="overlay"><div class="balance">${b}</div></div><div class="name">${c.card_name}</div>`;return d}
+
+    function preloadExpress(){const c=document.getElementById('expressResults');c.innerHTML='';getCards().forEach(x=>c.appendChild(createCard(x)))}
+
+    async function expressCheck(){const id=userId.value;const els=expressResults.children;const cards=getCards();await Promise.all(cards.map((c,i)=>fetch(c.gas_url+"?b="+encodeURIComponent(id)).then(r=>r.json()).then(d=>els[i].querySelector('.balance').innerText=d.result??'エラー').catch(()=>els[i].querySelector('.balance').innerText='エラー')))}
+
+    function renderCards(){cardList.innerHTML='';getCards().forEach(c=>{const el=createCard(c);el.onclick=()=>{selectedCard=c;detailImg.src=c.imageURL;detailTitle.innerText=c.card_name;switchTab('detailMode')};cardList.appendChild(el)})}
+
+    async function checkSelected(){result.innerText='確認中...';const r=await fetch(selectedCard.gas_url+"?b="+encodeURIComponent(normalUserId.value));const d=await r.json();result.innerText=d.result??'エラー'}
+
+    jsonUrl.oninput=async e=>{try{const d=await (await fetch(e.target.value)).json();previewData=d;previewImg.src=d.imageURL;previewName.innerText=d.card_name}catch{}}
+
+    function confirmAdd(){if(!previewData)return;const c=getCards();c.push(previewData);saveCards(c);renderCards();renderSettings();preloadExpress()}
+
+    function renderSettings(){settingsList.innerHTML='';getCards().forEach((c,i)=>{const d=document.createElement('div');d.className='item';d.draggable=true;d.innerHTML=`<img src="${c.imageURL}"><span>${c.card_name}</span><button onclick="removeCard(${i})" style="margin-left:auto;background:#ff3b30;border:none;color:#fff;padding:8px 12px;border-radius:8px;">削除</button>`;
+     d.ondragstart=()=>dragIndex=i;
+     d.ondragover=e=>e.preventDefault();
+     d.ondrop=()=>{let arr=getCards();const t=arr[dragIndex];arr.splice(dragIndex,1);arr.splice(i,0,t);saveCards(arr);renderSettings();renderCards();preloadExpress()};
+     settingsList.appendChild(d)})}
+
+    function removeCard(i){
+      if(!confirm('削除しますか？')) return;
+      let c=getCards();
+      c.splice(i,1);
+      saveCards(c);
+      renderSettings();
+      renderCards();
+      preloadExpress();
+    }
+
+async function openOfficialList(){
+  officialModal.style.display='flex';
+  officialList.innerHTML='読み込み中...';
+
+  try{
+    const urls = await (await fetch('https://json-soica.sionsky.jp/cards.json')).json();
+    officialList.innerHTML='';
+
+    for(const url of urls){
+      try{
+        const data = await (await fetch(url)).json();
+
+        const div = document.createElement('div');
+        div.style.background='#1c1f26';
+        div.style.borderRadius='14px';
+        div.style.overflow='hidden';
+        div.style.cursor='pointer';
+
+        div.innerHTML = `<img src="${data.imageURL}" style="width:100%;border-radius:10px"><div style="margin-top:8px">${data.card_name}</div>`;
+
+        div.onclick = ()=>{
+          previewData = data;
+          previewImg.src = data.imageURL;
+          previewName.innerText = data.card_name;
+          closeOfficial();
+        };
+
+        officialList.appendChild(div);
+
+      }catch{}
+    }
+
+  }catch{
+    officialList.innerText='取得失敗';
+  }
+}
+
+function closeOfficial(){
+  officialModal.style.display='none';
+}
+
+    renderCards();renderSettings();preloadExpress();
+</script>
+</body>
+</html>

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soica</title>
+
+    <style>
+        body{margin:0;background:#0e0f13;color:#fff;font-family:sans-serif}
+        main{padding:16px 16px 100px}
+        .page{display:none}
+        .page.active{display:block}
+
+        .input-row{display:flex;gap:10px}
+        .express-input{margin-bottom:20px}
+        .input-row input{
+            flex:1;
+            padding:14px 16px;
+            border-radius:14px;
+            border:1px solid rgba(255,255,255,0.05);
+            background:rgba(28,31,38,0.8);
+            color:#fff;
+            backdrop-filter:blur(6px);
+            transition:all 0.15s ease;
+        }
+
+        .input-row input:focus{
+            outline:none;
+            border-color:#0a84ff;
+            box-shadow:0 0 0 2px rgba(10,132,255,0.2);
+        }
+        .primary{padding:14px 16px;border:none;border-radius:12px;background:#0a84ff;color:#fff}
+
+        /* スマホカード */
+        .cards{display:grid;grid-template-columns:1fr;gap:16px}
+        .card{aspect-ratio:1.586;border-radius:16px;overflow:hidden;position:relative;background:#222}
+        .card img{width:100%;height:100%;object-fit:cover}
+        .card .overlay{position:absolute;inset:0;display:flex;justify-content:center;align-items:center;background:rgba(0,0,0,.4)}
+        .card .balance{font-size:28px;font-weight:bold}
+        .card .name{position:absolute;bottom:10px;left:12px;font-size:14px}
+
+        .detail-card img{width:100%;border-radius:16px}
+        .detail-name{font-size:22px;margin-top:10px}
+        .balance-box{margin-top:20px;padding:30px;text-align:center;font-size:26px;background:#1c1f26;border-radius:14px}
+
+        .back{position:absolute;top:10px;left:12px;font-size:18px}
+
+        .bottom-nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#181b22}
+        .bottom-nav button{flex:1;padding:14px;border:none;background:none;color:#aaa}
+        .bottom-nav .active{color:#0a84ff}
+
+        /* 設定 */
+        .settings-list .item{display:flex;align-items:center;gap:10px;background:#1c1f26;padding:12px;border-radius:10px;margin-bottom:10px}
+        .settings-list img{width:70px;border-radius:10px}
+        .actions{margin-left:auto;display:flex;gap:6px}
+        .actions button{padding:6px 10px;background:#2a2e38;border:none;color:#fff;border-radius:8px}
+
+        .add-floating{width:100%;padding:14px;margin-bottom:16px;background:#30d158;border:none;border-radius:12px;color:#fff}
+
+        /* ポップアップ */
+        .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;justify-content:center;align-items:center}
+        .modal-content{background:#1c1f26;padding:20px;border-radius:14px;width:90%}
+        .modal-input{
+            width:100%;
+            padding:16px;
+            border-radius:16px;
+            border:1px solid rgba(255,255,255,0.08);
+            background:rgba(28,31,38,0.9);
+            color:#fff;
+            font-size:14px;
+            backdrop-filter:blur(8px);
+            transition:all 0.2s ease;
+            box-sizing:border-box;
+        }
+
+        .modal-input:focus{
+            outline:none;
+            border-color:#0a84ff;
+            box-shadow:0 0 0 3px rgba(10,132,255,0.25);
+            background:rgba(28,31,38,1);
+        }
+        .modal-content button{width:100%;margin-top:6px}
+    </style>
+</head>
+
+<body>
+<main>
+
+    <section id="expressMode" class="page active">
+        <div class="input-row express-input">
+            <input id="userId" placeholder="ユーザーID">
+            <button class="primary" onclick="expressCheck()">確認</button>
+        </div>
+        <div id="expressResults" class="cards"></div>
+    </section>
+
+    <section id="normalMode" class="page">
+        <div id="cardList" class="cards"></div>
+    </section>
+
+    <section id="detailMode" class="page">
+        <div class="back" onclick="switchTab('normalMode')">＜</div>
+        <div class="detail-card">
+            <img id="detailImg">
+            <div id="detailTitle" class="detail-name"></div>
+        </div>
+        <div class="input-row" style="margin-top:20px">
+            <input id="normalUserId" placeholder="ユーザーID">
+            <button class="primary" onclick="checkSelected()">確認</button>
+        </div>
+        <div id="result" class="balance-box">残高を表示</div>
+    </section>
+
+    <section id="settingsMode" class="page">
+        <button class="add-floating" onclick="openModal()">カード追加</button>
+        <button class="add-floating" style="background:#0a84ff;margin-top:-6px;" onclick="openOfficialList()">公式カードリスト</button>
+        <div id="settingsList" class="settings-list"></div>
+    </section>
+
+</main>
+
+<nav class="bottom-nav">
+    <button onclick="switchTab('normalMode')">標準</button>
+    <button class="active" onclick="switchTab('expressMode')">エクスプレス</button>
+    <button onclick="switchTab('settingsMode')">設定</button>
+</nav>
+
+<!-- モーダル -->
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <input id="jsonUrl" class="modal-input" placeholder="JSON URL">
+        <button class="primary" onclick="confirmAddDirect()">追加</button>
+        <button onclick="closeModal()" style="margin-top:10px;background:#2a2e38;border:none;color:#fff;padding:12px;border-radius:12px;width:100%;">キャンセル</button>
+    </div>
+</div>
+
+<div id="officialModal" class="modal">
+  <div class="modal-content">
+    <h3 style="margin-top:0">公式カードリスト</h3>
+    <div id="officialList" style="display:grid;grid-template-columns:1fr;gap:12px;"></div>
+    <button onclick="closeOfficial()" style="margin-top:10px;background:#2a2e38;border:none;color:#fff;padding:12px;border-radius:12px;width:100%;">閉じる</button>
+  </div>
+</div>
+
+<script>
+    // PCならindex.htmlへリダイレクト
+    if (window.innerWidth >= 768) {
+      window.location.href = 'index.html';
+    }
+    let selectedCard=null;
+    const getCards=()=>JSON.parse(localStorage.getItem('soica_cards')||'[]');
+    const saveCards=c=>localStorage.setItem('soica_cards',JSON.stringify(c));
+
+    function switchTab(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');if(id==='expressMode')preloadExpress();}
+
+    function createCard(c,b='--'){const d=document.createElement('div');d.className='card';d.innerHTML=`<img src="${c.imageURL}"><div class="overlay"><div class="balance">${b}</div></div><div class="name">${c.card_name}</div>`;return d}
+
+    function preloadExpress(){expressResults.innerHTML='';getCards().forEach(c=>expressResults.appendChild(createCard(c)))}
+
+    async function expressCheck(){const id=userId.value;const els=expressResults.children;const cards=getCards();await Promise.all(cards.map((c,i)=>fetch(c.gas_url+"?b="+encodeURIComponent(id)).then(r=>r.json()).then(d=>els[i].querySelector('.balance').innerText=d.result??'エラー').catch(()=>els[i].querySelector('.balance').innerText='エラー')))}
+
+    function renderCards(){cardList.innerHTML='';getCards().forEach(c=>{const el=createCard(c);el.onclick=()=>{selectedCard=c;detailImg.src=c.imageURL;detailTitle.innerText=c.card_name;switchTab('detailMode')};cardList.appendChild(el)})}
+
+    async function checkSelected(){result.innerText='確認中...';const r=await fetch(selectedCard.gas_url+"?b="+encodeURIComponent(normalUserId.value));const d=await r.json();result.innerText=d.result??'エラー'}
+
+    function openModal(){modal.style.display='flex';jsonUrl.value=''}
+    function closeModal(){modal.style.display='none'}
+
+    // 直接追加（プレビューなし）
+    async function confirmAddDirect(){
+      try{
+        const d=await (await fetch(jsonUrl.value)).json();
+        const c=getCards();
+        c.push(d);
+        saveCards(c);
+        renderCards();
+        renderSettings();
+        preloadExpress();
+        closeModal();
+      }catch{
+        alert('JSON取得に失敗しました');
+      }
+    }
+
+    function renderSettings(){settingsList.innerHTML='';getCards().forEach((c,i)=>{const d=document.createElement('div');d.className='item';d.innerHTML=`<img src="${c.imageURL}"><span>${c.card_name}</span><div class="actions"><button onclick="moveUp(${i})">↑</button><button onclick="moveDown(${i})">↓</button><button onclick="removeCard(${i})">削除</button></div>`;settingsList.appendChild(d)})}
+
+    function moveUp(i){let c=getCards();if(i===0)return;[c[i-1],c[i]]=[c[i],c[i-1]];saveCards(c);renderSettings();renderCards();preloadExpress()}
+    function moveDown(i){let c=getCards();if(i===c.length-1)return;[c[i+1],c[i]]=[c[i],c[i+1]];saveCards(c);renderSettings();renderCards();preloadExpress()}
+    function removeCard(i){
+      let c=getCards();
+      c.splice(i,1);
+      saveCards(c);
+      renderSettings();
+      renderCards();
+      preloadExpress();
+    }
+
+    async function openOfficialList(){
+      officialModal.style.display='flex';
+      officialList.innerHTML='読み込み中...';
+
+      try{
+        const urls = await (await fetch('https://json-soica.sionsky.jp/cards.json')).json();
+        officialList.innerHTML='';
+
+        for(const url of urls){
+          try{
+            const data = await (await fetch(url)).json();
+
+            const div = document.createElement('div');
+            div.style.background='#1c1f26';
+            div.style.borderRadius='14px';
+            div.style.overflow='hidden';
+            div.style.cursor='pointer';
+
+            div.innerHTML = `<img src="${data.imageURL}" style="width:100%"><div style="padding:10px">${data.card_name}</div>`;
+
+            div.onclick = async ()=>{
+              const c=getCards();
+              c.push(data);
+              saveCards(c);
+              renderCards();
+              renderSettings();
+              preloadExpress();
+              closeOfficial();
+            };
+
+            officialList.appendChild(div);
+
+          }catch{}
+        }
+
+      }catch{
+        officialList.innerText='取得失敗';
+      }
+    }
+
+    function closeOfficial(){
+      officialModal.style.display='none';
+    }
+
+    renderCards();renderSettings();preloadExpress();
+</script>
+</body>
+</html>
