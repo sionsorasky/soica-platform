@@ -74,6 +74,25 @@
 
         .settings-right .item{display:flex;gap:12px;align-items:center;background:#1c1f26;padding:14px;border-radius:12px;margin-bottom:12px;cursor:grab}
         .settings-right img{width:90px;border-radius:12px}
+
+        .view-toggle{display:flex;gap:8px;margin-bottom:12px}
+.view-toggle button{flex:1;padding:10px;border:none;border-radius:10px;background:#2a2e38;color:#fff}
+.view-toggle .active{background:#0a84ff}
+
+.official-container{max-height:60vh;overflow-y:auto}
+
+.official-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.official-list{display:flex;flex-direction:column;gap:10px}
+
+.official-list .item{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    background:#1c1f26;
+    padding:10px;
+    border-radius:10px;
+}
+.official-list img{width:80px;border-radius:8px}
     </style>
 </head>
 
@@ -125,8 +144,11 @@
 
 <div id="officialModal" class="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);justify-content:center;align-items:center;">
   <div style="background:#1c1f26;padding:20px;border-radius:16px;width:90%;max-height:80vh;overflow:auto;">
-    <h3>公式カードリスト</h3>
-    <div id="officialList" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:16px;justify-content:start;"></div>
+      <h3>公式カードリスト</h3>
+
+      <div class="official-container">
+          <div id="officialList" class="official-grid"></div>
+      </div>
     <button onclick="closeOfficial()" style="margin-top:12px;width:100%;padding:12px;border:none;border-radius:12px;background:#2a2e38;color:#fff;">閉じる</button>
   </div>
 </div>
@@ -220,6 +242,70 @@ function closeOfficial(){
 }
 
     renderCards();renderSettings();preloadExpress();
+
+    let currentView = 'grid';
+let lastOfficialData = [];
+
+function setView(mode){
+  currentView = mode;
+
+  gridBtn.classList.toggle('active', mode==='grid');
+  listBtn.classList.toggle('active', mode==='list');
+
+  renderOfficialList(lastOfficialData);
+}
+
+function renderOfficialList(data){
+  officialList.innerHTML='';
+
+  if(currentView === 'grid'){
+    officialList.className = 'official-grid';
+
+    data.forEach(d=>{
+      const div = document.createElement('div');
+      div.style.background='#1c1f26';
+      div.style.borderRadius='14px';
+      div.style.overflow='hidden';
+      div.style.cursor='pointer';
+
+      div.innerHTML = `
+        <img src="${d.imageURL}" style="width:100%">
+        <div style="padding:8px">${d.card_name}</div>
+      `;
+
+      div.onclick = ()=>{
+        previewData = d;
+        previewImg.src = d.imageURL;
+        previewName.innerText = d.card_name;
+        closeOfficial();
+      };
+
+      officialList.appendChild(div);
+    });
+
+  }else{
+    officialList.className = 'official-list';
+
+    data.forEach(d=>{
+      const div = document.createElement('div');
+      div.className = 'item';
+
+      div.innerHTML = `
+        <img src="${d.imageURL}">
+        <span>${d.card_name}</span>
+      `;
+
+      div.onclick = ()=>{
+        previewData = d;
+        previewImg.src = d.imageURL;
+        previewName.innerText = d.card_name;
+        closeOfficial();
+      };
+
+      officialList.appendChild(div);
+    });
+  }
+}
 </script>
 </body>
 </html>

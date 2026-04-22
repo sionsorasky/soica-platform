@@ -83,6 +83,25 @@
             background:rgba(28,31,38,1);
         }
         .modal-content button{width:100%;margin-top:6px}
+
+        .view-toggle{display:flex;gap:8px;margin-bottom:12px}
+.view-toggle button{flex:1;padding:10px;border:none;border-radius:10px;background:#2a2e38;color:#fff}
+.view-toggle .active{background:#0a84ff}
+
+.official-container{max-height:60vh;overflow-y:auto}
+
+.official-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.official-list{display:flex;flex-direction:column;gap:10px}
+
+.official-list .item{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    background:#1c1f26;
+    padding:10px;
+    border-radius:10px;
+}
+.official-list img{width:80px;border-radius:8px}
     </style>
 </head>
 
@@ -139,8 +158,12 @@
 
 <div id="officialModal" class="modal">
   <div class="modal-content">
-    <h3 style="margin-top:0">公式カードリスト</h3>
-    <div id="officialList" style="display:grid;grid-template-columns:1fr;gap:12px;"></div>
+      <h3>公式カードリスト</h3>
+
+
+      <div class="official-container">
+          <div id="officialList" class="official-grid"></div>
+      </div>
     <button onclick="closeOfficial()" style="margin-top:10px;background:#2a2e38;border:none;color:#fff;padding:12px;border-radius:12px;width:100%;">閉じる</button>
   </div>
 </div>
@@ -199,50 +222,100 @@
     }
 
     async function openOfficialList(){
-      officialModal.style.display='flex';
-      officialList.innerHTML='読み込み中...';
+  officialModal.style.display='flex';
+  officialList.innerHTML='読み込み中...';
 
+  try{
+    const urls = await (await fetch('https://json-soica.sionsky.jp/cards.json')).json();
+
+    lastOfficialData = [];
+
+    for(const url of urls){
       try{
-        const urls = await (await fetch('https://json-soica.sionsky.jp/cards.json')).json();
-        officialList.innerHTML='';
-
-        for(const url of urls){
-          try{
-            const data = await (await fetch(url)).json();
-
-            const div = document.createElement('div');
-            div.style.background='#1c1f26';
-            div.style.borderRadius='14px';
-            div.style.overflow='hidden';
-            div.style.cursor='pointer';
-
-            div.innerHTML = `<img src="${data.imageURL}" style="width:100%"><div style="padding:10px">${data.card_name}</div>`;
-
-            div.onclick = async ()=>{
-              const c=getCards();
-              c.push(data);
-              saveCards(c);
-              renderCards();
-              renderSettings();
-              preloadExpress();
-              closeOfficial();
-            };
-
-            officialList.appendChild(div);
-
-          }catch{}
-        }
-
-      }catch{
-        officialList.innerText='取得失敗';
-      }
+        const data = await (await fetch(url)).json();
+        lastOfficialData.push(data);
+      }catch{}
     }
+
+    renderOfficialList(lastOfficialData);
+
+  }catch{
+    officialList.innerText='取得失敗';
+  }
+}
 
     function closeOfficial(){
       officialModal.style.display='none';
     }
 
     renderCards();renderSettings();preloadExpress();
+
+    let currentView = 'list';
+let lastOfficialData = [];
+
+function setView(mode){
+  currentView = mode;
+
+  gridBtn.classList.toggle('active', mode==='grid');
+  listBtn.classList.toggle('active', mode==='list');
+
+  renderOfficialList(lastOfficialData);
+}
+
+function renderOfficialList(data){
+  officialList.innerHTML='';
+
+  if(currentView === 'grid'){
+    officialList.className = 'official-grid';
+
+    data.forEach(d=>{
+      const div = document.createElement('div');
+      div.style.background='#1c1f26';
+      div.style.borderRadius='14px';
+      div.style.overflow='hidden';
+      div.style.cursor='pointer';
+
+      div.innerHTML = `
+        <img src="${d.imageURL}" style="width:100%">
+        <div style="padding:8px">${d.card_name}</div>
+      `;
+
+      div.onclick = ()=>{
+  const c=getCards();
+  c.push(d);
+  saveCards(c);
+  renderCards();
+  renderSettings();
+  preloadExpress();
+  closeOfficial();
+};
+
+      officialList.appendChild(div);
+    });
+
+  }else{
+    officialList.className = 'official-list';
+
+    data.forEach(d=>{
+      const div = document.createElement('div');
+      div.className = 'item';
+
+      div.innerHTML = `
+        <img src="${d.imageURL}">
+        <span>${d.card_name}</span>
+      `;
+
+      div.onclick = ()=>{
+        previewData = d;
+        previewImg.src = d.imageURL;
+        previewName.innerText = d.card_name;
+        closeOfficial();
+      };
+
+      officialList.appendChild(div);
+    });
+  }
+}
 </script>
 </body>
 </html>
